@@ -1,0 +1,54 @@
+2022년 2월 22일
+
+- python 으로 크롤링하기로 결정!
+- python의 크롤링 라이브러리인 beautifulsoup 를 쓰려고 하였으나 requests 단계에서 이미 json을 볼 수 있었기에 사용하지 않기로 함
+- requests만으로 진행 시도예정
+- 크롤링으로 얻은 json형식의 text를 json object로 활용 (기존 아이디어에선 문자열 찾기, 자르기로 시행했었으나 json object로 개선)
+- 현재 목표. 크롤링 데이터로 볼 수 있는 데이터중 어떤걸 가져갈지 기준 정하기
+
+얻은 json 예시 (https://www.wanted.co.kr/wd/94699)
+
+"status":"active",
+"title_thumb_img":"https://static.wanted.co.kr/images/company/20086/qxblu84jr3mbrg03__400_400.jpg",
+"is_newbie":false,
+"currency":"KRW",
+"logo_thumb_img":"https://static.wanted.co.kr/images/wdes/0_5.a8529545.jpg",
+"logo_img":"https://static.wanted.co.kr/images/wdes/0_4.a8529545.jpg",
+"address":{"country":"한국","id":34042,"location":"경북"},
+"confirm_time":"2022-01-19T16:17:41",
+"id":94699,
+"category":"IT",
+"main_tasks":"• 포스코강판 일반관리 시스템 운영(SM)",
+"requirements":"• 초급, 중급 기술자 이상",
+"job_country":"KR",
+"industry":"IT, 컨텐츠",
+"company_id":20086,
+"title_img":"https://static.wanted.co.kr/images/company/20086/qxblu84jr3mbrg03__1080_790.jpg",
+"due_time":null,
+"location":"경북 포항시 남구 철강로 173 (장흥동) ",
+"is_expert":true,
+"sub_categories":["Java Developer","자바 개발자","Web Developer","웹 개발자"],
+"position":"포스코강판 일반관리 시스템 운영(SM)",
+"reward":1000000,
+"jd":"- 포스코강판 일반관리 시스템 운영(SM)\n- 시스템 구현 : JAVA/Spring, DB: Oracle\n\n\n주요업무\n• 포스코강판 일반관리 시스템 운영(SM)\n\n자격요건\n• 초급, 중급 기술자 이상\n\n우대사항\n• 지방 근무자\n\n혜택 및 복지\n• 4대보험, 정시 출퇴근 등\n\n",
+"company_name":"휴비즈아이씨티",
+"lang":"ko"
+
+활용할만한 데이터
+
+- status (로직상 status가 active 한 페이지만 json단계로 넘어오지만, 한번 더 검증하는것도 나쁘지 않아보임)
+- title_thumb_img, logo_thumb_img, logo_img, title_img (이미지파일)
+- location, address 속의 location (지역)
+- confirm_time (올린날짜 정보데이터 제공 그리고 필터링도 가능)
+- requirements (숙련도?)
+- sub_categories (카테고리 상세 배열)
+- position (포지션)
+- jd, main_tasks,  (상세정보. 여기서 필터링하여서 언어정보를 추출해야함, 특히 jd 안의 우대사항 부분)
+- company_name (회사이름)
+
+확인이 필요한 데이터
+- due_time (예시는 null 인데 null 이 아닌 데이터 찾아서 due_time의 정확한 의도 파악)
+- is_expert (예시는 true 인데 아마 false면 신입 모집이라고 보여짐. 확인해야함)
+
+현재의 프로젝트 목표 = 가져온 데이터 excel 혹은 csv 파일로 생성.
+
