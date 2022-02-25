@@ -10,7 +10,7 @@ company_info_array = []  # 크롤링 회사 정보가 담길 배열
 
 
 def init():
-    for i in range(94690, 94700, 1):  # 사이트 크롤링 범위. 현재 테스트로 range 값 지정한 상태 (추후 크롤링 범위 수정)
+    for i in range(44900, 45000, 1):  # 사이트 크롤링 범위. 현재 테스트로 range 값 지정한 상태 (추후 크롤링 범위 수정)
         url = 'https://www.wanted.co.kr/wd/' + str(i)
         try:
             company_info = get_info(url, i)
@@ -28,27 +28,34 @@ def init():
 # url 크롤링하여 얻은 회사정보
 def get_info(url, i):
     response = requests.get(url)
-    html = response.text
+    html = response.text[-10000:]
     info_json = '{' + html[html.find(',"jobDetail"') + 1:html.find(',"theme')] + '}'  # 해당 페이지의 json
 
-    if len(info_json) > 100:  # request failed (모집종료된 공고)
+    if len(info_json) > 100:
         wanted_json = json.loads(info_json)
         wanted_json = wanted_json['jobDetail']['head'][str(i)]
         category = wanted_json['category']
-    else:
+    else:  # request failed (모집종료된 공고)
         return None
 
-    if category != 'IT':  # 카테고리가 IT인 회
+    if category != 'IT':  # 카테고리가 IT인 공고
         return None
     else:
-        company_info = {}
-        wanted_json = json.loads(info_json)
-        wanted_json = wanted_json['jobDetail']['head'][str(i)]
+        status = wanted_json['status']
+        if status == 'active':
+            status = '지원가능'
+        elif status == 'draft':
+            status = '지원마감'
+        else:
+            print('status 예외발생 url : {}, status : {}'.format(url, status))
 
-        company_info['회사이름'] = wanted_json['company_name']
-        company_info['지역'] = wanted_json['location']
-        company_info['주요업무'] = wanted_json['main_tasks']
-        company_info['자격요건'] = wanted_json['requirements']
+        company_info = {
+            '지원상태': status,
+            '회사이름': wanted_json['company_name'],
+            '지역': wanted_json['location'],
+            '주요업무': wanted_json['main_tasks'],
+            '자격요건': wanted_json['requirements']
+        }
 
     return company_info
 
@@ -71,7 +78,7 @@ def make_excel(company_info):
     # 엑셀 저장
     now = datetime.datetime.now()
     now_date = now.strftime('%Y%m%d_%H%M%S')
-    path = os.path.abspath(__file__)[:-10] + '/excel/' # 저장경로는 프로젝트 폴더내의 excel 폴더
+    path = os.path.abspath(__file__)[:-10] + '/excel/'  # 저장경로는 프로젝트 폴더내의 excel 폴더
     excel_title = path + 'wanted' + now_date + '.xlsx'
 
     write_wb.save(excel_title)
