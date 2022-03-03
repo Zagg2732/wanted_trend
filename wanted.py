@@ -7,26 +7,31 @@ import datetime
 from openpyxl import Workbook
 
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
+URL_BASIC = 'https://www.wanted.co.kr/wd/'
+url = None
 
-
+# init #
 def init():
-    for i in range(44900, 45000, 1):  # 사이트 크롤링 범위. 현재 테스트로 range 값 지정한 상태 (추후 크롤링 범위 수정)
-        url = 'https://www.wanted.co.kr/wd/' + str(i)
+    for i in range(44900, 44910, 1):  # 사이트 크롤링 범위. 현재 테스트로 range 값 지정한 상태 (추후 크롤링 범위 수정 및 함수화)
         try:
-            company_info = get_info(url, i)
+            company_info = get_company_info(get_json(i))
         except Exception as e:
-            print('Error 발생 url : {}, log : {}'.format(url, e))
+            # print('Error 발생 url : {}, log : {}'.format(url, e))
             company_info = None
 
         if company_info is not None:
             company_info_array.append(company_info)
-    make_excel(company_info_array)
+    if len(company_info_array) > 0:  # 배열에 IT 공고를 하나도 추가하지 못했다면
+        make_excel(company_info_array)
+    else:
+        print('크롤링 범위에 해당하는 IT 공고가 없어 엑셀이 만들어지지 않았습니다')
 
 
 # function #
-
-# url 크롤링하여 얻은 회사정보
-def get_info(url, i):
+# url 크롤링하여 얻은 회사정보 json
+def get_json(i):
+    global url
+    url = URL_BASIC + str(i)
     response = requests.get(url)
     html = response.text[-10000:]
     info_json = '{' + html[html.find(',"jobDetail"') + 1:html.find(',"theme')] + '}'  # 해당 페이지의 json
@@ -34,10 +39,18 @@ def get_info(url, i):
     if len(info_json) > 100:
         wanted_json = json.loads(info_json)
         wanted_json = wanted_json['jobDetail']['head'][str(i)]
-        category = wanted_json['category']
+        return wanted_json
     else:  # request failed (모집종료된 공고)
         return None
 
+
+# get_json에서 얻은 json 분석
+def get_company_info(wanted_json):
+    if wanted_json is None:
+        return None
+
+    global url
+    category = wanted_json['category']
     if category != 'IT':  # 카테고리가 IT인 공고
         return None
     else:
@@ -49,12 +62,19 @@ def get_info(url, i):
         else:
             print('status 예외발생 url : {}, status : {}'.format(url, status))
 
+        job_detail = str(wanted_json['jd'])
+        prefer_start = job_detail.find('우대')
+        prefer = ''
+        if prefer_start > 0:
+            prefer = job_detail[prefer_start + 5:job_detail.find('혜택')-2].strip()
+
         company_info = {
             '지원상태': status,
             '회사이름': wanted_json['company_name'],
             '지역': wanted_json['location'],
             '주요업무': wanted_json['main_tasks'],
-            '자격요건': wanted_json['requirements']
+            '자격요건': wanted_json['requirements'],
+            '우대사항': prefer
         }
 
     return company_info
