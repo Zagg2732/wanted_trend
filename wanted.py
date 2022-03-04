@@ -4,6 +4,7 @@ import os
 import requests
 import json
 import datetime
+import lang_analyze as la
 from openpyxl import Workbook
 
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
@@ -12,7 +13,7 @@ url = None
 
 # init #
 def init():
-    for i in range(44900, 44910, 1):  # 사이트 크롤링 범위. 현재 테스트로 range 값 지정한 상태 (추후 크롤링 범위 수정 및 함수화)
+    for i in range(49029, 49030, 1):  # 사이트 크롤링 범위. 현재 테스트로 range 값 지정한 상태 (추후 크롤링 범위 수정 및 함수화)
         try:
             company_info = get_company_info(get_json(i))
         except Exception as e:
@@ -32,6 +33,7 @@ def init():
 def get_json(i):
     global url
     url = URL_BASIC + str(i)
+    print(url)
     response = requests.get(url)
     html = response.text[-10000:]
     info_json = '{' + html[html.find(',"jobDetail"') + 1:html.find(',"theme')] + '}'  # 해당 페이지의 json
@@ -63,18 +65,27 @@ def get_company_info(wanted_json):
             print('status 예외발생 url : {}, status : {}'.format(url, status))
 
         job_detail = str(wanted_json['jd'])
-        prefer_start = job_detail.find('우대')
+        prefer_start = job_detail.find('우대사항')
         prefer = ''
         if prefer_start > 0:
             prefer = job_detail[prefer_start + 5:job_detail.find('혜택')-2].strip()
+            prefer_lang = la.find_lang_from_jd(prefer)
+        main_tasks = wanted_json['main_tasks']
+        main_tasks_lang = la.find_lang_from_jd(main_tasks)
+        requirements = wanted_json['requirements']
+        requirements_lang = la.find_lang_from_jd(requirements)
 
         company_info = {
+            'url': url,
             '지원상태': status,
             '회사이름': wanted_json['company_name'],
             '지역': wanted_json['location'],
-            '주요업무': wanted_json['main_tasks'],
-            '자격요건': wanted_json['requirements'],
-            '우대사항': prefer
+            '주요업무': main_tasks,
+            '주요업무(언어)': main_tasks_lang,
+            '자격요건': requirements,
+            '자격요건(언어)': requirements_lang,
+            '우대사항': prefer,
+            '우대사항(언어)': prefer_lang
         }
 
     return company_info
@@ -82,6 +93,7 @@ def get_company_info(wanted_json):
 
 # 회사정보를 통한 엑셀 파일 생성
 def make_excel(company_info):
+    print(company_info)
     write_wb = Workbook()  # openpyxl
     write_ws = write_wb.active
 
@@ -105,4 +117,4 @@ def make_excel(company_info):
 
 
 # init #
-init()
+# init()

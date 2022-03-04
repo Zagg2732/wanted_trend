@@ -1,0 +1,3 @@
+import wanted
+
+wanted.init()

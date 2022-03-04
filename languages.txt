@@ -1,1 +1,1 @@
-javascript, python, java, c#, typescript, c++, c, go, kotlin, ruby, vba, swift, r, rust, dart, scala, perl, groovy, matlab, Unity
+javascript, python, java, c#, typescript, c++, c, go, kotlin, ruby, vba, swift, r, rust, dart, scala, perl, groovy, matlab, Unity, Unity3D, Node.js, php, html, vue, react, angular, typescript
