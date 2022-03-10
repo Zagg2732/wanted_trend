@@ -2,10 +2,9 @@
 # 언어, 프레임워크 툴 등을 분류할 키워드를 얻기 위함
 import os
 
-import wanted
-
-NEXT_LETTER = [',', '', ' ', '에', '/', '등', '관', '개', '\n', '.js', 'js', '과', '와']  # 언어 다음에 오는 단어의 모음. 프로그래밍 언어를 찾았을때 다음글자를 체크해서 언어인지 확인
-BEFORE_LETTER = [',', ' ', '/', '\n', '•']
+# 프로그래밍 언어 앞뒤에 올 수 있는 단어 필터
+BEFORE_LETTER = [',', ' ', '/', '\n', '•', '(']
+NEXT_LETTER = [',', '', ' ', '에', '/', '등', '관', '개', '\n', '.js', 'js', '과', '와', ')']
 
 
 def init():
@@ -30,11 +29,15 @@ def find_lang_from_jd(jd):
     for l in lang:
         l = l.lower()
         lang_index = jd.find(l)
-        if lang_index > 0:
-            if jd[lang_index + len(l)] in NEXT_LETTER and jd[lang_index - 1] in BEFORE_LETTER:
+        jd_temp = jd
+        while lang_index > 0:
+            if jd_temp[lang_index + len(l)] in NEXT_LETTER and jd_temp[lang_index - 1] in BEFORE_LETTER:
                 if jd_lang == '':
                     jd_lang += l
                 else:
                     jd_lang += ', ' + l
+            jd_temp = jd_temp[lang_index + 1:]
+            lang_index = jd_temp.find(l)
+
 
     return jd_lang
