@@ -16,7 +16,7 @@ CRAWL_GOAL = 200  # 크롤링으로 얻을 데이터 수
 
 # crawl_start = 102160  # 크롤링 시작지점
 crawl_count = 0       # GRAWL_GOAL 을 위한 Count
-find_latest_start = 102219  # 가장 최신공고 찾는 시작지점
+find_latest_start = 105538  # 가장 최신공고 찾는 시작지점
 
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
 none_streak = 0  # 미등록 / 삭제 공고 연속
@@ -47,12 +47,11 @@ def find_latest():
         url = URL_BASIC + str(find_latest_start + i)
         response = requests.get(url)
 
-        if len(response.text) < 342000:  # 미등록 or 삭제공고
+        if len(response.text) < 349500:  # 미등록 or 삭제공고
             none_streak += 1
         else:
             none_streak = 0
         i += 1
-
     return find_latest_start + i - MAX_STREAK - 1
 
 
@@ -178,6 +177,10 @@ def make_excel():
     now = datetime.datetime.now()
     now_date = now.strftime('%Y%m%d_%H%M%S')
     path = os.path.abspath(__file__)[:-10] + '/excel/'  # 저장경로는 프로젝트 폴더내의 excel 폴더
+
+    if not os.path.exists(path):  # 폴더 없으면 만들기
+        os.makedirs(path)
+
     excel_title = path + 'wanted' + now_date + '.xlsx'
 
     write_wb.save(excel_title)
