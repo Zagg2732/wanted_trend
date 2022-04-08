@@ -1,0 +1,8 @@
+{
+  "CrawlSettings": {
+    "start_point": 106886,
+    "max_streak": 10,
+    "crawl_goal": 10,
+    "url_basic": "https://www.wanted.co.kr/wd/"
+  }
+}

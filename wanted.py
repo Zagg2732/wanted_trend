@@ -1,4 +1,5 @@
 # Wanted 사이트를 크롤링하여 개발관련 인사이트를 제공하는 Project
+# requests 로 받아온 해당 url 정보에서 txt로 이루어진 json 부분을 잘라내어서 활용
 
 import os
 import requests
@@ -8,43 +9,72 @@ import lang_analyze as la
 from openpyxl import Workbook
 from openpyxl.utils.exceptions import IllegalCharacterError
 
+# settings by properties.json #
+url_basic = None  # url 주소
+max_streak = None  # 최대 미등록 공고 횟수. 높을수록 최신 공고 신뢰도가 높아짐
+crawl_goal = None  # 크롤링으로 얻을 데이터 수
+start_point = None  # 가장 최신공고 찾는 시작지점
+
 # global #
-
-URL_BASIC = 'https://www.wanted.co.kr/wd/'
-MAX_STREAK = 50  # 최대 미등록 공고 횟수. 높을수록 최신 공고 신뢰도가 높아짐
-CRAWL_GOAL = 200  # 크롤링으로 얻을 데이터 수
-
-# crawl_start = 102160  # 크롤링 시작지점
-crawl_count = 0       # GRAWL_GOAL 을 위한 Count
-find_latest_start = 105538  # 가장 최신공고 찾는 시작지점
-
+crawl_count = 0  # GRAWL_GOAL 을 위한 Count
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
 none_streak = 0  # 미등록 / 삭제 공고 연속
-latest_url = 0
-url = None
+url = None  # 크롤링 진행중인 url (basic_url + wd)
 is_latest = False  # 크롤링 시작지점 ~ 가장 최근 공고까지 조회했는지 여부
 
 
 # init #
 def init():
+    setting_by_json()
     latest_wd = find_latest()
+    renew_json_file(latest_wd)
     init_crawl(latest_wd)
     make_excel()
 
 
 # function #
 
+# properties.json 으로 setting
+def setting_by_json():
+    global url_basic
+    global max_streak
+    global crawl_goal
+    global start_point
+
+    with open('properties.json', 'r') as f:
+        json_data = json.load(f)
+
+    settings_json = json_data['CrawlSettings']
+    url_basic = settings_json['url_basic']
+    max_streak = settings_json['max_streak']
+    crawl_goal = settings_json['crawl_goal']
+    start_point = settings_json['start_point']
+
+
+# properties.json 의 start_point renew
+def renew_json_file(new_latest):
+    with open('properties.json', 'r') as f:
+        json_data = json.load(f)
+
+    # 데이터 수정
+    json_data['CrawlSettings']['start_point'] = new_latest
+
+    # 기존 json 파일 덮어쓰기
+    with open('properties.json', 'w') as f:
+        json.dump(json_data, f)
+
+
 # 최신 공고 url 번호 찾기
-# find_latest_start 를 이 함수의 return 값 + 1로 계속 갱신요망
+# 최신 공고번호 찾은 후 properties.json 의 start_point도 같이 갱신
 def find_latest():
-    global URL_BASIC
+    global url_basic
     global none_streak
-    global find_latest_start
+    global start_point
     global url
 
     i = 0
-    while none_streak < MAX_STREAK and is_latest is False:
-        url = URL_BASIC + str(find_latest_start + i)
+    while none_streak < max_streak and is_latest is False:
+        url = url_basic + str(start_point + i)
         response = requests.get(url)
 
         if len(response.text) < 349500:  # 미등록 or 삭제공고
@@ -52,7 +82,13 @@ def find_latest():
         else:
             none_streak = 0
         i += 1
-    return find_latest_start + i - MAX_STREAK - 1
+
+    latest_point = start_point + i - max_streak - 1
+
+    with open('properties.json', 'r') as file:
+        data = json.load(file)
+
+    return latest_point
 
 
 # 크롤링 범위
@@ -64,11 +100,12 @@ def init_crawl(wd):
     crawl_count = 0  # crawling 된 IT 공고 카운트
     i = 0
 
-    while crawl_count < CRAWL_GOAL:
+    while crawl_count < crawl_goal:
         insert_company_info(wd - i)
         i += 1
 
 
+# company_info_array 에 IT 회사 정보 append
 def insert_company_info(wd):
     global crawl_count
 
@@ -87,7 +124,7 @@ def insert_company_info(wd):
 def get_json(wd):
     global url
 
-    url = URL_BASIC + str(wd)
+    url = url_basic + str(wd)
     response = requests.get(url)
     html = response.text[-10000:]
     info_json = '{' + html[html.find(',"jobDetail"') + 1:html.find(',"theme')] + '}'  # 해당 페이지의 json
