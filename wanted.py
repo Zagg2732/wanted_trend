@@ -2,6 +2,7 @@
 # requests 로 받아온 해당 url 정보에서 txt로 이루어진 json 부분을 잘라내어서 활용
 
 import os
+import pathlib
 import requests
 import json
 import datetime
@@ -17,6 +18,7 @@ start_point = None  # 가장 최신공고 찾는 시작지점
 min_text_length = None # response.text 의 최소길이. 이 길이보다 길어야 모집중인 공고라고 판단
 
 # global #
+json_file = str(pathlib.Path(__file__).parent.absolute()) + '/properties.json'
 crawl_count = 0  # GRAWL_GOAL 을 위한 Count
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
 none_streak = 0  # 미등록 / 삭제 공고 연속
@@ -45,8 +47,9 @@ def setting_by_json():
     global crawl_goal
     global start_point
     global min_text_length
+    global json_file
 
-    with open('properties.json', 'r') as f:
+    with open(json_file, 'r') as f:
         json_data = json.load(f)
 
     settings_json = json_data['CrawlSettings']
@@ -59,14 +62,16 @@ def setting_by_json():
 
 # properties.json 의 start_point renew
 def renew_json_file(new_latest):
-    with open('properties.json', 'r') as f:
+    global json_file
+
+    with open(json_file, 'r') as f:
         json_data = json.load(f)
 
     # 데이터 수정
     json_data['CrawlSettings']['start_point'] = new_latest + 1
 
     # 기존 json 파일 덮어쓰기
-    with open('properties.json', 'w') as f:
+    with open(json_file, 'w') as f:
         json.dump(json_data, f)
 
 
