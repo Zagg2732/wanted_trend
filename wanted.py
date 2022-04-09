@@ -14,21 +14,25 @@ url_basic = None  # url 주소
 max_streak = None  # 최대 미등록 공고 횟수. 높을수록 최신 공고 신뢰도가 높아짐
 crawl_goal = None  # 크롤링으로 얻을 데이터 수
 start_point = None  # 가장 최신공고 찾는 시작지점
+min_text_length = None # response.text 의 최소길이. 이 길이보다 길어야 모집중인 공고라고 판단
 
 # global #
 crawl_count = 0  # GRAWL_GOAL 을 위한 Count
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
 none_streak = 0  # 미등록 / 삭제 공고 연속
 url = None  # 크롤링 진행중인 url (basic_url + wd)
-is_latest = False  # 크롤링 시작지점 ~ 가장 최근 공고까지 조회했는지 여부
 
 
 # init #
-def init():
+def init(c_type):
     setting_by_json()
     latest_wd = find_latest()
     renew_json_file(latest_wd)
-    init_crawl(latest_wd)
+    if c_type == 'begin':  # 크롤링이 처음이라면 가장 최신 ~ 목표 크롤링 갯수까지 크롤링함
+        crawl_to_goal(latest_wd)
+    elif c_type == 'daily':  # 스케줄러로 매일 실행하게될 크롤링은 최신 ~ 이전 크롤링 까지 크롤링함
+        crawl_to_start_point(latest_wd)
+
     make_excel()
 
 
@@ -40,6 +44,7 @@ def setting_by_json():
     global max_streak
     global crawl_goal
     global start_point
+    global min_text_length
 
     with open('properties.json', 'r') as f:
         json_data = json.load(f)
@@ -49,6 +54,7 @@ def setting_by_json():
     max_streak = settings_json['max_streak']
     crawl_goal = settings_json['crawl_goal']
     start_point = settings_json['start_point']
+    min_text_length = settings_json['min_text_length']
 
 
 # properties.json 의 start_point renew
@@ -57,7 +63,7 @@ def renew_json_file(new_latest):
         json_data = json.load(f)
 
     # 데이터 수정
-    json_data['CrawlSettings']['start_point'] = new_latest
+    json_data['CrawlSettings']['start_point'] = new_latest + 1
 
     # 기존 json 파일 덮어쓰기
     with open('properties.json', 'w') as f:
@@ -73,11 +79,11 @@ def find_latest():
     global url
 
     i = 0
-    while none_streak < max_streak and is_latest is False:
+    while none_streak < max_streak:
         url = url_basic + str(start_point + i)
         response = requests.get(url)
 
-        if len(response.text) < 349500:  # 미등록 or 삭제공고
+        if len(response.text) < min_text_length:  # 미등록 or 삭제공고
             none_streak += 1
         else:
             none_streak = 0
@@ -85,23 +91,31 @@ def find_latest():
 
     latest_point = start_point + i - max_streak - 1
 
-    with open('properties.json', 'r') as file:
-        data = json.load(file)
-
     return latest_point
 
 
-# 크롤링 범위
-def init_crawl(wd):
+# 목표 개수만큼 크롤링
+def crawl_to_goal(latest_wd):
     global company_info_array
     global crawl_count
-    global is_latest
 
     crawl_count = 0  # crawling 된 IT 공고 카운트
     i = 0
 
     while crawl_count < crawl_goal:
-        insert_company_info(wd - i)
+        insert_company_info(latest_wd - i)
+        i += 1
+
+
+# 최신 ~ strat_point(이전 최신글) 까지 크롤링
+def crawl_to_start_point(latest_wd):
+    global company_info_array
+    global start_point
+
+    i = 0
+
+    while latest_wd - i > start_point:
+        insert_company_info(latest_wd - i)
         i += 1
 
 
