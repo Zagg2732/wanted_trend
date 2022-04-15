@@ -9,4 +9,4 @@ try:
 except IndexError as e:
     c_type = 'daily'
 
-wanted.init(c_type)
+wanted.init(sys.argv[1])

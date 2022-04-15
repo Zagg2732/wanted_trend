@@ -15,7 +15,8 @@ url_basic = None  # url 주소
 max_streak = None  # 최대 미등록 공고 횟수. 높을수록 최신 공고 신뢰도가 높아짐
 crawl_goal = None  # 크롤링으로 얻을 데이터 수
 start_point = None  # 가장 최신공고 찾는 시작지점
-min_text_length = None # response.text 의 최소길이. 이 길이보다 길어야 모집중인 공고라고 판단
+min_text_length = None  # response.text 의 최소길이. 이 길이보다 길어야 모집중인 공고라고 판단
+excel_save_path = None  # 엑셀저장경로
 
 # global #
 json_file = str(pathlib.Path(__file__).parent.absolute()) + '/properties.json'
@@ -48,6 +49,7 @@ def setting_by_json():
     global start_point
     global min_text_length
     global json_file
+    global excel_save_path
 
     with open(json_file, 'r') as f:
         json_data = json.load(f)
@@ -58,6 +60,7 @@ def setting_by_json():
     crawl_goal = settings_json['crawl_goal']
     start_point = settings_json['start_point']
     min_text_length = settings_json['min_text_length']
+    excel_save_path = settings_json['excel_save_path']
 
 
 # properties.json 의 start_point renew
@@ -231,12 +234,12 @@ def make_excel():
 
     # 엑셀 저장
     now = datetime.datetime.now()
-    now_date = now.strftime('%Y%m%d_%H%M%S')
-    path = os.path.abspath(__file__)[:-10] + '/excel/'  # 저장경로는 프로젝트 폴더내의 excel 폴더
+    now_date = now.strftime('%Y%m%d')
+    # path = os.path.abspath(__file__)[:-10] + 'excel/'  # 저장경로는 프로젝트 폴더내의 excel 폴더
 
-    if not os.path.exists(path):  # 폴더 없으면 만들기
-        os.makedirs(path)
+    if not os.path.exists(excel_save_path):  # 폴더 없으면 만들기
+        os.makedirs(excel_save_path)
 
-    excel_title = path + 'wanted' + now_date + '.xlsx'
+    excel_title = excel_save_path + now_date + '.xlsx'
 
     write_wb.save(excel_title)
