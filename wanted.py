@@ -1,3 +1,5 @@
+#-*- coding: utf-8 -*-
+
 # Wanted 사이트를 크롤링하여 개발관련 인사이트를 제공하는 Project
 # requests 로 받아온 해당 url 정보에서 txt로 이루어진 json 부분을 잘라내어서 활용
 
