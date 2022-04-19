@@ -10,5 +10,5 @@ try:
     c_type = sys.argv[1]  # 프로젝트 실행시 argv로 받아서 사용
     wanted.init(c_type)
 except Exception as e:
-    c_type = 'daily'
+    c_type = 'begin'
     wanted.init(c_type)

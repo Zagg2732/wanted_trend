@@ -9,6 +9,7 @@ import datetime
 import lang_analyze as la
 from openpyxl import Workbook
 from openpyxl.utils.exceptions import IllegalCharacterError
+from collections import deque
 
 # settings by properties.json #
 url_basic = None  # url 주소
@@ -21,22 +22,33 @@ excel_save_path = None  # 엑셀저장경로
 # global #
 json_file = str(pathlib.Path(__file__).parent.absolute()) + '/properties.json'
 crawl_count = 0  # GRAWL_GOAL 을 위한 Count
+crawling_text_array = []  # 최근 공고 탐색중 얻는 response.text array
+wanted_json_array = []    # response.text 에서 얻은 json array
 company_info_array = []  # 크롤링 회사 정보가 담길 배열
 none_streak = 0  # 미등록 / 삭제 공고 연속
+latest_point = 0  # 가장 최근 공고 글번호
 url = None  # 크롤링 진행중인 url (basic_url + wd)
 
 
 # init #
 def init(c_type):
-    setting_by_json()
-    latest_wd = find_latest()
-    renew_json_file(latest_wd) # 다음 크롤링 시작지점 변경
-    if c_type == 'begin':  # 크롤링이 처음이라면 가장 최신 ~ 목표 크롤링 갯수까지 크롤링함
-        crawl_to_goal(latest_wd)
-    elif c_type == 'daily':  # 스케줄러로 매일 실행하게될 크롤링은 최신 ~ 이전 크롤링 까지 크롤링함
-        crawl_to_start_point(latest_wd)
+    global crawling_text_array
+    global crawl_goal
+    global wanted_json_array
 
-    make_excel()
+    setting_by_json()  # properties.json 의 설정 가져오기
+    crawl_to_latest()  # 이전 크롤링 지점 ~ 가장 최근 공고까지 크롤링
+    res_text_array_to_json() # json 형태로 변환후 IT 카테고리만 배열에 추가
+
+    if c_type == 'begin':  # begin : 최근공고 ~ 목표 크롤링 개수까지 크롤링
+        if len(wanted_json_array) >= crawl_goal:  # 최근공고를 찾는동안 채워진 array가 목표를 넘는다면 자름
+            crawling_text_array = crawling_text_array[-crawl_goal:]
+        else:  # 목표개수를 채울때까지 크롤링
+            crawl_to_goal()
+
+    make_company_info_array()   # json -> company_info dict 형태로 저장
+    make_excel()                # 엑셀 파일 생성
+    renew_json_file()           # 가장 최근 공고 + 1 을 다음 크롤링 시작지점으로 저장
 
 
 # function #
@@ -71,14 +83,15 @@ def get_min_text_len():
 
 
 # properties.json 의 start_point renew
-def renew_json_file(new_latest):
+def renew_json_file():
     global json_file
+    global latest_point
 
     with open(json_file, 'r') as f:
         json_data = json.load(f)
 
     # 데이터 수정
-    json_data['CrawlSettings']['start_point'] = new_latest + 1
+    json_data['CrawlSettings']['start_point'] = latest_point + 1
 
     # 기존 json 파일 덮어쓰기
     with open(json_file, 'w') as f:
@@ -86,19 +99,20 @@ def renew_json_file(new_latest):
 
 
 # 최신 공고 url 번호 찾기
+# 최신 공고를 찾는동안 받은 response.text는 array에 넣음
 # 최신 공고번호 찾은 후 properties.json 의 start_point도 같이 갱신
-def find_latest():
-    global url_basic
+def crawl_to_latest():
     global none_streak
     global start_point
-    global url
+    global latest_point
 
     i = 0
-    while none_streak < max_streak:
-        url = url_basic + str(start_point + i)
-        response = requests.get(url)
+    while none_streak < max_streak:  # max_streak은 내용없는 공고의 연속개수이며 크롤링 끝내는 조건으로 활용중
+        wd = start_point + i
 
-        if len(response.text) < min_text_length:  # 미등록 or 삭제공고
+        is_streak = crawl_by_wd(wd)
+
+        if not is_streak:  # 미등록 or 삭제공고
             none_streak += 1
         else:
             none_streak = 0
@@ -106,99 +120,121 @@ def find_latest():
 
     latest_point = start_point + i - max_streak - 1
 
-    return latest_point
 
-
-# 목표 개수만큼 크롤링
-def crawl_to_goal(latest_wd):
-    global company_info_array
-    global crawl_count
-
-    crawl_count = 0  # crawling 된 IT 공고 카운트
-    i = 0
-
-    while crawl_count < crawl_goal:
-        insert_company_info(latest_wd - i)
-        i += 1
-
-
-# 최신 ~ strat_point(이전 최신글) 까지 크롤링
-def crawl_to_start_point(latest_wd):
-    global company_info_array
+# 목표 개수 채울때까지 크롤링
+def crawl_to_goal():
     global start_point
+    global crawl_goal
+    global wanted_json_array
+    global url_basic
+
+    wanted_json_array = deque(wanted_json_array)    # appendleft(prepend)를 위해 dequq 형태로 변환
+
+    remain_goal = crawl_goal - len(wanted_json_array) # 남은 IT공고 크롤링 수
 
     i = 0
+    while remain_goal > 0:
+        wd = start_point - i
+        res_text = crawl_by_wd_backward(wd)
 
-    while latest_wd - i > start_point:
-        insert_company_info(latest_wd - i)
+        if res_text == '': # 내려간 공고
+            i += 1
+            continue
+
+        res_text_json = '{' + res_text[res_text.find(',"jobDetail"') + 1:res_text.find(',"theme')] + '}'  # 해당 페이지의 json
+
+        if res_text_json[:12] == '{"jobDetail"' and len(res_text_json) > 100:
+            res_text_json = json.loads(res_text_json)   # json 변환
+            res_text_json = res_text_json['jobDetail']['head'][str(wd)]
+
+        if res_text_json['category'] == 'IT':  # IT 카테고리면 json_array에 넣어줌
+            res_text_json['url'] = url_basic + str(wd)
+            wanted_json_array.appendleft(res_text_json)
+            remain_goal -= 1
         i += 1
+    wanted_json_array = list(wanted_json_array) # deque -> list 변환
 
 
-# company_info_array 에 IT 회사 정보 append
-def insert_company_info(wd):
-    global crawl_count
-
-    try:
-        company_info = get_company_info(get_json(wd))
-    except Exception as e:
-        # print('Error 발생 url : {}, log : {}'.format(url, e))
-        company_info = None
-
-    if company_info is not None:
-        company_info_array.append(company_info)
-        crawl_count += 1
-
-
-# url 크롤링하여 얻은 회사정보를 json 변환
-def get_json(wd):
-    global url
+# wd (글번호) 를 통한 크롤링 정보 담기
+def crawl_by_wd(wd):
+    global crawling_text_array
 
     url = url_basic + str(wd)
     response = requests.get(url)
-    html = response.text[-10000:]
-    info_json = '{' + html[html.find(',"jobDetail"') + 1:html.find(',"theme')] + '}'  # 해당 페이지의 json
 
-    if len(info_json) > 100:
-        wanted_json = json.loads(info_json)
-        wanted_json = wanted_json['jobDetail']['head'][str(wd)]
-        return wanted_json
-    else:  # request failed (모집종료된 공고)
-        return None
-
-
-# get_json에서 얻은 json 분석
-def get_company_info(wanted_json):
-    if wanted_json is None:
-        return None
-
-    global url
-
-    category = wanted_json['category']
-    if category != 'IT':  # 카테고리가 IT인 공고
-        return None
+    if len(response.text) < min_text_length:  # 미등록 or 삭제공고
+        return False
     else:
+        res_info = {wd: response.text}
+        crawling_text_array.append(res_info)  # 내용있는 공고면 크롤링 text 리스트에 추가
+        return True
+
+
+# 크롤링 기준점 이전으로 크롤링
+def crawl_by_wd_backward(wd):
+    url = url_basic + str(wd)
+    response = requests.get(url)
+
+    if len(response.text) < min_text_length:  # 미등록 or 삭제공고
+        return ''
+    else:
+        return response.text
+
+
+# url 크롤링하여 얻은 회사정보를 json 변환
+def res_text_array_to_json():
+    global crawling_text_array
+
+    for res_info in crawling_text_array:
+        for wd in res_info.keys():
+            text = res_info[wd][-10000:]
+            info_json = '{' + text[text.find(',"jobDetail"') + 1:text.find(',"theme')] + '}'  # 해당 페이지의 json
+
+            if info_json[:12] == '{"jobDetail"' and len(info_json) > 100:
+                wanted_json = json.loads(info_json)
+                wanted_json = wanted_json['jobDetail']['head'][str(wd)]
+                if wanted_json['category'] == 'IT':
+                    wanted_json['url'] = url_basic + str(wd)
+                    wanted_json_array.append(wanted_json)
+
+
+# wanted_json_array 의 json을 분석하여 원하는 정보를 company_info 라는 dict 형태로 저장
+def make_company_info_array():
+    global wanted_json_array
+
+    for wanted_json in wanted_json_array:
+        if wanted_json is None:
+            return None
+
         status = wanted_json['status']
         if status == 'active':
             status = '지원가능'
         elif status == 'draft':
             status = '지원마감'
         else:
-            print('status 예외발생 url : {}, status : {}'.format(url, status))
+            print('status 예외발생 json'.format(wanted_json))
 
         job_detail = str(wanted_json['jd'])
         prefer_start = job_detail.find('우대사항')  # 우대사항 필터
         prefer = ''
+        prefer_lang = ''
         if prefer_start > 0:  # 우대사항이 있다면
             prefer = job_detail[prefer_start + 5:job_detail.find('혜택') - 2].strip()
             prefer = prefer.replace('-', '•')
             prefer_lang = la.find_lang_from_jd(prefer)
+
         main_tasks = str(wanted_json['main_tasks']).replace('-', '•')  # 주요 업무
         main_tasks_lang = la.find_lang_from_jd(main_tasks)  # 주요 업무 프로그래밍 언어 필터
         requirements = str(wanted_json['requirements']).replace('-', '•')  # 자격요건
         requirements_lang = la.find_lang_from_jd(requirements)  # 자격 요건 프로그래밍 언어 필터
 
+        if wanted_json['confirm_time'] is None:  # 아주 가끔 confirm_time이 None 인 공고가 있음
+            now = datetime.datetime.now()
+            today = now.strftime('%Y-%m-%d')
+            wanted_json['confirm_time'] = today
+
         company_info = {
-            'url': url,
+            'url': wanted_json['url'],
             '공고 작성일': wanted_json['confirm_time'][:10],
             '지원상태': status,
             '회사이름': wanted_json['company_name'],
@@ -210,11 +246,10 @@ def get_company_info(wanted_json):
             '우대사항': prefer,
             '우대사항(언어)': prefer_lang
         }
+        company_info_array.append(company_info)
 
-    return company_info
 
-
-# 회사정보를 통한 엑셀 파일 생성
+# company_info_array를 통한 엑셀 파일 생성
 def make_excel():
     global company_info_array
 
@@ -242,7 +277,6 @@ def make_excel():
     # 엑셀 저장
     now = datetime.datetime.now()
     now_date = now.strftime('%Y%m%d')
-    # path = os.path.abspath(__file__)[:-10] + 'excel/'  # 저장경로는 프로젝트 폴더내의 excel 폴더
 
     if not os.path.exists(excel_save_path):  # 폴더 없으면 만들기
         os.makedirs(excel_save_path)
