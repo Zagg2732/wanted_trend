@@ -1,10 +1,1 @@
-{
-  "CrawlSettings": {
-    "start_point": 107993,
-    "max_streak": 5,
-    "crawl_goal": 20,
-    "url_basic": "https://www.wanted.co.kr/wd/",
-    "min_text_length": 349500,
-    "excel_save_path": "C:/Users/Zagg/Downloads/wanted_trend_web/excel/"
-  }
-}
+{"CrawlSettings": {"start_point": 108636, "max_streak": 20, "crawl_goal": 20, "url_basic": "https://www.wanted.co.kr/wd/", "excel_save_path": "C:/Users/Zagg/Downloads/wanted_trend_web/excel/"}}

@@ -1,5 +1,3 @@
-#-*- coding: utf-8 -*-
-
 # Wanted 사이트를 크롤링하여 개발관련 인사이트를 제공하는 Project
 # requests 로 받아온 해당 url 정보에서 txt로 이루어진 json 부분을 잘라내어서 활용
 
@@ -32,7 +30,7 @@ url = None  # 크롤링 진행중인 url (basic_url + wd)
 def init(c_type):
     setting_by_json()
     latest_wd = find_latest()
-    renew_json_file(latest_wd)
+    renew_json_file(latest_wd) # 다음 크롤링 시작지점 변경
     if c_type == 'begin':  # 크롤링이 처음이라면 가장 최신 ~ 목표 크롤링 갯수까지 크롤링함
         crawl_to_goal(latest_wd)
     elif c_type == 'daily':  # 스케줄러로 매일 실행하게될 크롤링은 최신 ~ 이전 크롤링 까지 크롤링함
@@ -61,8 +59,15 @@ def setting_by_json():
     max_streak = settings_json['max_streak']
     crawl_goal = settings_json['crawl_goal']
     start_point = settings_json['start_point']
-    min_text_length = settings_json['min_text_length']
     excel_save_path = settings_json['excel_save_path']
+    min_text_length = get_min_text_len()
+
+
+# 내용이 없는 공고 필터 기준
+def get_min_text_len():
+    min_url = url_basic + str(1000000000000)  # min_url 원리 : 내용이 없는 공고 response.text 길이를 구함. 공고의 기본 구성 길이보다 길면 내용이 있는 공고
+    response = requests.get(min_url)
+    return len(response.text) + 200
 
 
 # properties.json 의 start_point renew
