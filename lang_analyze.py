@@ -29,12 +29,11 @@ def find_lang_from_jd(jd):
         l = l.lower()
         lang_index = jd.find(l) # 프로그래밍 언어 찾기, 못찾으면 -1 이 리턴됨
         jd_temp = jd
-        while lang_index > 0:
+        while lang_index > 1:
             if jd_temp[lang_index + len(l)] in NEXT_LETTER and jd_temp[lang_index - 1] in BEFORE_LETTER:
                 jd_lang.append(l)
             jd_temp = jd_temp[lang_index + 1:]
             lang_index = jd_temp.find(l)
-
     if len(jd_lang) < 1:
         return ''
     else:
