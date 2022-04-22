@@ -1,4 +1,4 @@
-WANTED_TREND_WEB
+WANTED_TREND
 ===
 ***
 
